@@ -4,8 +4,9 @@
 CLEAN=false
 REBOOT=false
 EDIT=false
-DIR=/home/
-CONFIG_PATH=~/.kernel-config/config
+DIR=~/.kernel-building/
+CONFIG_PATH="$DIR"config
+LOGS_PATH="$DIR"logs/
 HOWTO="Usage: install-kernel2 [-r] [-c] [-e] <kernel version> <number of threads>\nkernel version - version of kernel you are going to install\nnumber of threads - number of threads you want to compile on ( preffered number is 2x<number of your cpu cores> )\nOPTIONAL OPTIONS:\n-r - reboot after install\n-c - turn off automatical deleting all sources and other files stored in $DIRkernel-building/\n-e - edit .config instead of compiling it"
 while [[ $1 = -* ]]; do
     arg=$1; shift
@@ -38,62 +39,70 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 #making a place to work
- echo $1 $2
  echo making directory to work
+
+mkdir -p $DIR
 cd $DIR
-mkdir kernel-building
-cd kernel-building
 mkdir logs
  echo downloading kernel
 #download sources
- echo to see progress past in another terminal tail -f /home/kernel-building/logs/download
-wget https://www.kernel.org/pub/linux/kernel/v3.x/linux-$1.tar.xz -o ./logs/download
-if [ -e /home/kernel-building/linux-$1.tar.xz ]
+ echo to see progress past in another terminal tail -f "$LOGS_PATH"download
+#wget https://www.kernel.org/pub/linux/kernel/v3.x/linux-$1.tar.xz -o ./logs/download
+if [ ! -e "./linux-$1.tar.xz" ]
 then
-     echo unpacking kernel
-    tar xf linux-$1.tar.xz
-    cd linux-$1
-     echo copying configuration
-    if [ -na $CONFIG_PATH ]
-    then
+ echo Cannot download kernel archive
+ exit 1
+fi
+ echo unpacking kernel
+
+#tar xf linux-$1.tar.xz
+cd linux-$1
+ echo copying configuration
+if [ ! -e $CONFIG_PATH ]
+then
      echo configuration file in path $CONFIG_PATH does not exist. Copying one from boot
-     mkdir $CONFIG_PATH
-     cp `ls -t /boot/config* | head -1` $CONFIG_PATH
-    fi
-    cp $CONFIG_PATH ./.config
-    if [ EDIT = true ]
-    then
-        make menuconfig
-        echo backuping old config file
-        mv $CONFIG_PATH $CONFIG_PATH_
-        echo saving the new one
-        cp ./.config $CONFIG_PATH
-    else
-        make oldconfig
-    fi
-    #compiling
-     echo starting make
-     echo to see progress past in another terminal tail -f /home/kernel-building/logs/make
-    time make -j$2 > ../logs/make
-     echo starting make modules_install
-     echo to see progress past in another terminal tail -f /home/kernel-building/logs/make-modules
-    time make modules_install -j$2 > ../logs/make-modules
-     echo starting make install
-     echo to see progress past in another terminal tail -f /home/kernel-building/logs/make-install
-    time make install -j$2 > ../logs/make-install
+    cp `ls -t /boot/config* | head -1` $CONFIG_PATH
+fi
+cp $CONFIG_PATH ./.config
+if [ $EDIT = true ]
+then
+    make menuconfig
+     echo backuping old config file
+    mv $CONFIG_PATH "$CONFIG_PATH"_
+     echo saving the new one
+    cp ./.config $CONFIG_PATH
+else
+    make oldconfig
+fi
+#compiling
+ echo starting make
+ echo to see progress past in another terminal tail -f "$LOGS_PATH"make
+time make -j$2 &> $LOGS_PATH/make
+test=`grep 'make: ***' $LOGS_PATH/make`
+if [ "x$test" = "x" ]
+then
+     echo An error occured! Aborting!
+    exit 1
+fi
+ echo starting make modules_install
+ echo to see progress past in another terminal tail -f "$LOGS_PATH"make-modules
+time make modules_install -j$2 &> $LOGS_PATH/make-modules
+ echo starting make install
+ echo to see progress past in another terminal tail -f $DIR/logs/make-install
+time make install -j$2 &> $LOGS_PATH/make-install
 else
      echo Cannot download kernel archive
 fi
 #clean
 echo 'press any key to end process (and optionally clean and reboot if you chose these options)'
 read -n 1
-if [ REBOOT = true ]
+if [ $CLEAN = true ]
 then
    echo cleaning
    cd $DIR
-   rm -r kernel-building
+   rm -r ./linux-$1
 fi
-if [ CLEAN != true ]
+if [ $REBOOT != true ]
 then
    echo 'rebooting'
    reboot
