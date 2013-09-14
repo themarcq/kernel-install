@@ -90,9 +90,6 @@ time make modules_install -j$2 &> $LOGS_PATH/make-modules
  echo starting make install
  echo to see progress past in another terminal tail -f $DIR/logs/make-install
 time make install -j$2 &> $LOGS_PATH/make-install
-else
-     echo Cannot download kernel archive
-fi
 #clean
 echo 'press any key to end process (and optionally clean and reboot if you chose these options)'
 read -n 1
