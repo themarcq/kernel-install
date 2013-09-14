@@ -1,0 +1,90 @@
+#!/bin/bash
+#Made by Marek Matys
+#Configuration:
+CLEAN=false
+REBOOT=false
+EDIT=false
+DIR=/home/
+CONFIG_PATH=/home/themarcq/skrypty/config-kernel
+HOWTO="Usage: install-kernel2 [-r] [-c] [-e] <kernel version> <number of threads>\nkernel version - version of kernel you are going to install\nnumber of threads - number of threads you want to compile on ( preffered number is 2x<number of your cpu cores> )\nOPTIONAL OPTIONS:\n-r - reboot after install\n-c - turn off automatical deleting all sources and other files stored in $DIRkernel-building/\n-e - edit .config instead of compiling it"
+while [[ $1 = -* ]]; do
+    arg=$1; shift
+    case $arg in
+        -r)
+            REBOOT=true
+            ;;
+        -c)
+            CLEAN=true
+            ;;
+        -e)
+            EDIT=true
+            ;;
+
+    esac
+done
+#checking if everything is OK
+if [ "x$2" == "x" ]
+then
+   echo -e $HOWTO
+   exit 1
+fi
+if [ "x$1" == "x" ]
+then
+   echo -e $HOWTO
+   exit 1
+fi
+if [[ $EUID -ne 0 ]]; then
+   echo "You must be a root user" 1>&2
+   exit 1
+fi
+#making a place to work
+ echo $1 $2
+ echo making directory to work
+cd $DIR
+mkdir kernel-building
+cd kernel-building
+mkdir logs
+ echo downloading kernel
+#download sources
+ echo to see progress past in another terminal tail -f /home/kernel-building/logs/download
+wget https://www.kernel.org/pub/linux/kernel/v3.x/linux-$1.tar.xz -o ./logs/download
+if [ -e /home/kernel-building/linux-$1.tar.xz ]
+then
+     echo unpacking kernel
+    tar xf linux-$1.tar.xz
+    cd linux-$1
+     echo copying configuration
+    cp $CONFIG_PATH ./.config
+    if [ EDIT = true ]
+    then
+        make menuconfig
+    else
+        make oldconfig
+    fi
+    #compiling
+     echo starting make
+     echo to see progress past in another terminal tail -f /home/kernel-building/logs/make
+    time make -j$2 > ../logs/make
+     echo starting make modules_install
+     echo to see progress past in another terminal tail -f /home/kernel-building/logs/make-modules
+    time make modules_install -j$2 > ../logs/make-modules
+     echo starting make install
+     echo to see progress past in another terminal tail -f /home/kernel-building/logs/make-install
+    time make install -j$2 > ../logs/make-install
+else
+     echo Cannot download kernel archive
+fi
+#clean
+echo 'press any key to end process (and optionally clean and reboot if you chose these options)'
+read -n 1
+if [ REBOOT = true ]
+then
+   echo cleaning
+   cd $DIR
+   rm -r kernel-building
+fi
+if [ CLEAN != true ]
+then
+   echo 'rebooting'
+   reboot
+fi
