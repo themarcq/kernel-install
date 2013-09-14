@@ -1,11 +1,11 @@
 #!/bin/bash
-#Made by Marek Matys
+#Made by Marek themarcq Matys
 #Configuration:
 CLEAN=false
 REBOOT=false
 EDIT=false
 DIR=/home/
-CONFIG_PATH=/home/themarcq/skrypty/config-kernel
+CONFIG_PATH=~/.kernel-config/config
 HOWTO="Usage: install-kernel2 [-r] [-c] [-e] <kernel version> <number of threads>\nkernel version - version of kernel you are going to install\nnumber of threads - number of threads you want to compile on ( preffered number is 2x<number of your cpu cores> )\nOPTIONAL OPTIONS:\n-r - reboot after install\n-c - turn off automatical deleting all sources and other files stored in $DIRkernel-building/\n-e - edit .config instead of compiling it"
 while [[ $1 = -* ]]; do
     arg=$1; shift
@@ -54,10 +54,20 @@ then
     tar xf linux-$1.tar.xz
     cd linux-$1
      echo copying configuration
+    if [ -na $CONFIG_PATH ]
+    then
+     echo configuration file in path $CONFIG_PATH does not exist. Copying one from boot
+     mkdir $CONFIG_PATH
+     cp `ls -t /boot/config* | head -1` $CONFIG_PATH
+    fi
     cp $CONFIG_PATH ./.config
     if [ EDIT = true ]
     then
         make menuconfig
+        echo backuping old config file
+        mv $CONFIG_PATH $CONFIG_PATH_
+        echo saving the new one
+        cp ./.config $CONFIG_PATH
     else
         make oldconfig
     fi
